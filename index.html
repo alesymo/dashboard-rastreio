@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastreio de Totes | Mercado Livre</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --navy: #001f3f; --yellow: #FFD700; --white: #ffffff; --gray-light: #f8f9fa; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--gray-light); margin: 0; display: flex; flex-direction: column; min-height: 100vh; }
+        header { background-color: var(--navy); color: var(--white); padding: 1rem 5%; border-bottom: 4px solid var(--yellow); }
+        
+        /* Abas */
+        .tabs { display: flex; background: #e9ecef; padding: 10px 5% 0; gap: 5px; }
+        .tab-btn { padding: 12px 25px; border: none; background: #dee2e6; cursor: pointer; font-weight: bold; border-radius: 8px 8px 0 0; transition: 0.3s; }
+        .tab-btn.active { background: var(--white); border-top: 3px solid var(--yellow); color: var(--navy); }
+        
+        .container { max-width: 1200px; margin: 2rem auto; padding: 0 20px; flex: 1; width: 100%; box-sizing: border-box; }
+        .main-card { background: var(--white); border-radius: 0 0 12px 12px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); display: none; }
+        .main-card.active { display: block; animation: fadeIn 0.4s; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Formulário */
+        .form-group { display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; background: #f1f3f5; padding: 20px; border-radius: 8px; }
+        .input-field { padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; width: 100%; box-sizing: border-box; outline: none; }
+        .input-field:focus { border-color: var(--navy); }
+        .select-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .input-combo { display: flex; gap: 5px; }
+        
+        .btn-plus { background: var(--navy); color: var(--yellow); border: none; border-radius: 8px; width: 45px; cursor: pointer; font-size: 1.2rem; font-weight: bold; }
+        .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 8px; transition: 0.2s; }
+        .btn:active { transform: scale(0.98); }
+        .btn-add { background-color: var(--navy); color: white; width: 100%; }
+        .btn-clear { background-color: #fff; color: #d63031; border: 1px solid #d63031; margin-top: 10px; width: fit-content; }
+        
+        /* Tabela */
+        .table-container { overflow-x: auto; max-height: 450px; border: 1px solid #eee; border-radius: 8px; background: white; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { background-color: var(--navy); color: var(--white); padding: 12px; position: sticky; top: 0; z-index: 10; }
+        td { padding: 10px; border-bottom: 1px solid #f0f0f0; }
+        
+        /* Estilos de Status */
+        .badge { padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; display: inline-block; }
+        .badge-destino { background: #e7f5ff; color: #001f3f; }
+        .badge-etd { background: #fff3bf; color: #856404; }
+
+        /* Rodapé e Loading */
+        footer { background-color: var(--navy); color: var(--white); text-align: center; padding: 15px 0; font-size: 0.85rem; border-top: 3px solid var(--yellow); margin-top: auto; position: relative;}
+        #loadingOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; font-weight: bold; color: var(--navy); }
+        .admin-config { position: absolute; right: 20px; top: 12px; cursor: pointer; color: var(--yellow); opacity: 0.7; font-size: 1.1rem; }
+        
+        /* Mobile */
+        @media (max-width: 600px) {
+            .select-row { grid-template-columns: 1fr; }
+            header h2 { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loadingOverlay">
+        <i class="fas fa-sync fa-spin fa-2x" style="margin-bottom: 10px;"></i>
+        Sincronizando Base de Dados...
+    </div>
+
+    <header>
+        <h2>RASTREIO DE <span style="color:var(--yellow)">TOTES</span></h2>
+    </header>
+    
+    <div class="tabs">
+        <button class="tab-btn active" onclick="openTab(event, 'registro')">BASE DE DADOS</button>
+        <button class="tab-btn" onclick="openTab(event, 'busca')">CONSULTA</button>
+    </div>
+
+    <div class="container">
+        <div id="registro" class="main-card active">
+            <div class="form-group">
+                <textarea id="toteInput" class="input-field" style="min-height: 80px;" placeholder="Bipe as totes aqui (uma por linha)..."></textarea>
+                
+                <div class="select-row">
+                    <div class="input-combo">
+                        <select id="destinoInput" class="input-field">
+                            <option value="">Destino...</option>
+                            <option value="Infeed 11">Infeed 11</option>
+                            <option value="Infeed 12">Infeed 12</option>
+                            <option value="Infeed 13">Infeed 13</option>
+                            <option value="Infeed 14">Infeed 14</option>
+                            <option value="Infeed 21">Infeed 21</option>
+                            <option value="Infeed 22">Infeed 22</option>
+                            <option value="Infeed 24">Infeed 24</option>
+                            <option value="OverFlow">OverFlow</option>
+                            <option value="PTW">PTW</option>
+                            <option value="Rejeito">Rejeito</option>
+                            <option value="Retiros">Retiros</option>
+                            <option value="Transfer">Transfer</option>
+                            <option value="Passa-Pallet MZ-1 (Rua 1)">Passa-Pallet MZ-1 (Rua 1)</option>
+                            <option value="Passa-Pallet MZ-1 (Rua 178)">Passa-Pallet MZ-1 (Rua 178)</option>
+                            <option value="Passa-Pallet MZ-2 (Rua 1)">Passa-Pallet MZ-2 (Rua 1)</option>
+                            <option value="Passa-Pallet MZ-2 (Rua 178)">Passa-Pallet MZ-2 (Rua 178)</option>
+                            <option value="Passa-Pallet MZ-3 (Rua 1)">Passa-Pallet MZ-3 (Rua 1)</option>
+                            <option value="Passa-Pallet MZ-3 (Rua 178)">Passa-Pallet MZ-3 (Rua 178)</option>
+                        </select>
+                        <button class="btn-plus" onclick="adicionarConfig('destinoInput')" title="Novo Destino">+</button>
+                    </div>
+
+                    <div class="input-combo">
+                        <select id="etdInput" class="input-field">
+                            <option value="">ETD...</option>
+                            <option value="00:00">00:00</option><option value="01:00">01:00</option>
+                            <option value="02:00">02:00</option><option value="03:00">03:00</option>
+                            <option value="09:00">09:00</option><option value="13:00">13:00</option>
+                            <option value="14:00">14:00</option><option value="15:30">15:30</option>
+                            <option value="16:00">16:00</option><option value="17:00">17:00</option> 
+                            <option value="18:00">18:00</option><option value="19:00">19:00</option>
+                            <option value="20:00">20:00</option><option value="21:00">21:00</option>
+                            <option value="22:00">22:00</option>
+                        </select>
+                        <button class="btn-plus" onclick="adicionarConfig('etdInput')" title="Novo ETD">+</button>
+                    </div>
+                </div>
+                <button class="btn btn-add" onclick="saveData()">
+                    <i class="fas fa-save"></i> SALVAR NA PLANILHA
+                </button>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tote</th>
+                            <th>Data/Hora</th>
+                            <th>Destino</th>
+                            <th>ETD</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody"></tbody>
+                </table>
+            </div>
+            
+            <button class="btn btn-clear" onclick="clearData()">
+                <i class="fas fa-trash-alt"></i> Limpar Base
+            </button>
+        </div>
+
+        <div id="busca" class="main-card">
+            <input type="text" id="searchInput" class="input-field" placeholder="🔎 Consultar número da Tote..." onkeyup="filterSearch()">
+            <div class="table-container" style="margin-top:20px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tote</th>
+                            <th>Data/Hora</th>
+                            <th>Destino</th>
+                            <th>ETD</th>
+                        </tr>
+                    </thead>
+                    <tbody id="searchBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        Mercado Livre | Desenvolvido por Álef Veríssimo &copy; 2026
+        <i class="fas fa-cog admin-config" onclick="alterarSenha()" title="Configurações de Senha"></i>
+    </footer>
+
+    <script>
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw9wTN1zjTpjYkdPdBGyT5KEEj9KMG1OM3rIcc54s2R5gHTZ-R5ELxBE_pTeCDmwQWw/exec";
+        let SENHA_MESTRE = "admin123"; 
+        let db = [];
+
+        // Inicialização
+        window.onload = () => {
+            carregarDados(); 
+            // Atualização silenciosa a cada 30 segundos
+            setInterval(syncSilencioso, 30000);
+        };
+
+        // Função de carga com overlay visível
+        async function carregarDados() {
+            toggleLoading(true);
+            await executarBusca();
+            toggleLoading(false);
+        }
+
+        // Função de atualização em segundo plano (sem travar a tela)
+        async function syncSilencioso() {
+            console.log("Sincronizando em background...");
+            await executarBusca();
+        }
+
+        // Lógica principal de busca de dados
+        async function executarBusca() {
+            try {
+                const response = await fetch(WEB_APP_URL);
+                const data = await response.json();
+                db = data.historico;
+                SENHA_MESTRE = data.senhaAtual;
+                
+                // Atualiza as tabelas
+                renderTable('historyBody', db.slice().reverse().slice(0, 15));
+                
+                if (document.getElementById('searchInput').value) {
+                    filterSearch();
+                }
+
+                // Sincroniza selects de Destino e ETD
+                data.opcoes.forEach(opt => {
+                    const selectId = opt.tipo === 'destino' ? 'destinoInput' : 'etdInput';
+                    const select = document.getElementById(selectId);
+                    if (![...select.options].some(o => o.value === opt.valor)) {
+                        select.add(new Option(opt.valor, opt.valor));
+                    }
+                });
+            } catch (e) { console.error("Erro na busca:", e); }
+        }
+
+        async function saveData() {
+            const input = document.getElementById('toteInput').value;
+            const totes = input.split('\n').map(t => t.trim()).filter(t => t !== "");
+            const destino = document.getElementById('destinoInput').value;
+            const etd = document.getElementById('etdInput').value;
+
+            if (!totes.length || !destino || !etd) return alert("Preencha todos os campos!");
+            
+            toggleLoading(true);
+            const agora = new Date().toLocaleString('pt-BR');
+            const payload = totes.map(t => ({ tote: t, data: agora, destino: destino, etd: etd }));
+
+            try {
+                await fetch(WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+                document.getElementById('toteInput').value = '';
+                alert("Dados salvos com sucesso!");
+                await carregarDados(); 
+            } catch (e) { alert("Erro ao salvar dados."); }
+            toggleLoading(false);
+        }
+
+        function renderTable(id, data) {
+            document.getElementById(id).innerHTML = data.map(item => `
+                <tr>
+                    <td><strong>${item.tote}</strong></td>
+                    <td style="font-size:0.85rem">${item.data}</td>
+                    <td><span class="badge badge-destino">${item.destino}</span></td>
+                    <td><span class="badge badge-etd">${item.etd}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function filterSearch() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const results = db.filter(item => item.tote.toString().toLowerCase().includes(query));
+            renderTable('searchBody', results.slice().reverse());
+        }
+
+        async function adicionarConfig(selectId) {
+            const senha = prompt("Senha de Administrador:");
+            if (senha !== SENHA_MESTRE) return alert("Senha incorreta!");
+            
+            const novoValor = prompt("Digite o novo valor:");
+            if (!novoValor) return;
+            
+            const tipo = selectId === 'destinoInput' ? 'destino' : 'etd';
+            toggleLoading(true);
+            try {
+                await fetch(WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "ADD_CONFIG", tipo: tipo, valor: novoValor }) });
+                document.getElementById(selectId).add(new Option(novoValor, novoValor));
+                alert("Configuração salva!");
+            } catch (e) { alert("Erro ao salvar."); }
+            toggleLoading(false);
+        }
+
+        async function alterarSenha() {
+            const atual = prompt("Senha atual:");
+            if (atual !== SENHA_MESTRE) return alert("Incorreta!");
+            const nova = prompt("Nova senha (mínimo 3 caracteres):");
+            if (!nova || nova.length < 3) return alert("Inválida!");
+
+            toggleLoading(true);
+            try {
+                await fetch(WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "CHANGE_PASSWORD", novaSenha: nova }) });
+                SENHA_MESTRE = nova;
+                alert("Senha atualizada!");
+            } catch (e) { alert("Erro."); }
+            toggleLoading(false);
+        }
+
+        async function clearData() {
+            if (confirm("Deseja realmente apagar todo o histórico da planilha?") && prompt("Confirme a senha mestre:") === SENHA_MESTRE) {
+                toggleLoading(true);
+                await fetch(WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({action: "CLEAR_DATABASE"}) });
+                setTimeout(carregarDados, 1500);
+            }
+        }
+
+        function openTab(evt, name) {
+            document.querySelectorAll('.main-card, .tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(name).classList.add('active');
+            evt.currentTarget.classList.add('active');
+        }
+
+        function toggleLoading(s) { document.getElementById('loadingOverlay').style.display = s ? 'flex' : 'none'; }
+    </script>
+</body>
+</html>
