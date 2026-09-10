@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rastreio de Totes | Mercado Livre</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <style>
         :root { --navy: #001f3f; --yellow: #FFD700; --white: #ffffff; --gray-light: #f8f9fa; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--gray-light); margin: 0; display: flex; flex-direction: column; min-height: 100vh; }
@@ -23,7 +24,7 @@
 
         /* Formulário */
         .form-group { display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; background: #f1f3f5; padding: 20px; border-radius: 8px; }
-        .input-field { padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; width: 100%; box-sizing: border-box; outline: none; }
+        .input-field { padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; width: 100%; box-sizing: border-box; outline: none; font-family: inherit; }
         .input-field:focus { border-color: var(--navy); }
         .select-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .input-combo { display: flex; gap: 5px; }
@@ -32,7 +33,9 @@
         .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 8px; transition: 0.2s; }
         .btn:active { transform: scale(0.98); }
         .btn-add { background-color: var(--navy); color: white; width: 100%; }
-        .btn-clear { background-color: #fff; color: #d63031; border: 1px solid #d63031; margin-top: 10px; width: fit-content; }
+        .btn-clear { background-color: #fff; color: #d63031; border: 1px solid #d63031; }
+        .btn-csv { background-color: #fff; color: #198754; border: 1px solid #198754; }
+        .actions-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
         
         /* Tabela */
         .table-container { overflow-x: auto; max-height: 450px; border: 1px solid #eee; border-radius: 8px; background: white; }
@@ -44,6 +47,22 @@
         .badge { padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; display: inline-block; }
         .badge-destino { background: #e7f5ff; color: #001f3f; }
         .badge-etd { background: #fff3bf; color: #856404; }
+
+        /* Consulta - modo múltiplo */
+        .search-mode-toggle { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+        .search-mode-toggle label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; color: var(--navy); }
+        .search-mode-toggle input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--navy); }
+
+        /* Filtros de período (CSV e gráfico) */
+        .filtro-periodo { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: #f1f3f5; padding: 12px 15px; border-radius: 8px; }
+        .filtro-periodo label { font-weight: 600; color: var(--navy); font-size: 0.9rem; white-space: nowrap; }
+        .filtro-periodo .input-field { width: auto; padding: 8px 12px; }
+        .btn-neutro { background-color: #6c757d; color: #fff; }
+
+        /* Gráficos */
+        .chart-section-title { color: var(--navy); margin: 25px 0 12px; font-size: 1.05rem; }
+        .chart-section-title:first-child { margin-top: 0; }
+        .chart-wrapper { position: relative; height: 320px; background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 15px; box-sizing: border-box; margin-bottom: 10px; }
 
         /* Rodapé e Loading */
         footer { background-color: var(--navy); color: var(--white); text-align: center; padding: 15px 0; font-size: 0.85rem; border-top: 3px solid var(--yellow); margin-top: auto; position: relative;}
@@ -71,6 +90,7 @@
     <div class="tabs">
         <button class="tab-btn active" onclick="openTab(event, 'registro')">BASE DE DADOS</button>
         <button class="tab-btn" onclick="openTab(event, 'busca')">CONSULTA</button>
+        <button class="tab-btn" onclick="openTab(event, 'infeed')">DISTRIBUIÇÃO POR INFEED</button>
     </div>
 
     <div class="container">
@@ -88,6 +108,7 @@
                             <option value="Infeed 14">Infeed 14</option>
                             <option value="Infeed 21">Infeed 21</option>
                             <option value="Infeed 22">Infeed 22</option>
+                            <option value="Infeed 23">Infeed 23</option>
                             <option value="Infeed 24">Infeed 24</option>
                             <option value="OverFlow">OverFlow</option>
                             <option value="PTW">PTW</option>
@@ -124,6 +145,25 @@
                 </button>
             </div>
 
+            <div class="filtro-periodo" style="margin-bottom: 15px;">
+                <label>Filtrar período para exportar:</label>
+                <input type="date" id="csvDataInicio" class="input-field">
+                <span>até</span>
+                <input type="date" id="csvDataFim" class="input-field">
+                <button class="btn btn-neutro" onclick="limparFiltroCSV()">
+                    <i class="fas fa-eraser"></i> Limpar Filtro
+                </button>
+            </div>
+
+            <div class="actions-row" style="margin-bottom: 20px;">
+                <button class="btn btn-clear" onclick="clearData()">
+                    <i class="fas fa-trash-alt"></i> Limpar Base
+                </button>
+                <button class="btn btn-csv" onclick="baixarCSV()">
+                    <i class="fas fa-file-csv"></i> Baixar CSV
+                </button>
+            </div>
+
             <div class="table-container">
                 <table>
                     <thead>
@@ -137,14 +177,27 @@
                     <tbody id="historyBody"></tbody>
                 </table>
             </div>
-            
-            <button class="btn btn-clear" onclick="clearData()">
-                <i class="fas fa-trash-alt"></i> Limpar Base
-            </button>
         </div>
 
         <div id="busca" class="main-card">
-            <input type="text" id="searchInput" class="input-field" placeholder="🔎 Consultar número da Tote..." onkeyup="filterSearch()">
+            <div class="search-mode-toggle">
+                <label>
+                    <input type="checkbox" id="multiToteCheckbox" onchange="toggleSearchMode()">
+                    Consultar múltiplas totes simultaneamente
+                </label>
+            </div>
+
+            <div id="singleSearchWrapper">
+                <input type="text" id="searchInput" class="input-field" placeholder="🔎 Consultar número da Tote..." onkeyup="filterSearch()">
+            </div>
+
+            <div id="multiSearchWrapper" style="display:none;">
+                <textarea id="multiSearchInput" class="input-field" style="min-height: 90px;" placeholder="Bipe ou digite as totes aqui (uma por linha)..." oninput="limitarLinhaTote(this)"></textarea>
+                <button class="btn btn-add" style="width:fit-content; margin-top:10px;" onclick="filterSearchMulti()">
+                    <i class="fas fa-search"></i> Buscar Último Registro de Cada Tote
+                </button>
+            </div>
+
             <div class="table-container" style="margin-top:20px;">
                 <table>
                     <thead>
@@ -159,6 +212,29 @@
                 </table>
             </div>
         </div>
+
+        <div id="infeed" class="main-card">
+            <h3 class="chart-section-title">Totes por Infeed — Hoje</h3>
+            <div class="chart-wrapper"><canvas id="chartInfeedDia"></canvas></div>
+
+            <h3 class="chart-section-title">Total de Totes por Hora — Hoje</h3>
+            <div class="chart-wrapper"><canvas id="chartInfeedHora"></canvas></div>
+
+            <h3 class="chart-section-title">Totes por Hora, por Infeed — Hoje</h3>
+            <div class="chart-wrapper"><canvas id="chartInfeedHoraPorInfeed"></canvas></div>
+
+            <h3 class="chart-section-title">Totes por Infeed — Período (padrão: últimos 30 dias)</h3>
+            <div class="filtro-periodo" style="margin-bottom: 15px;">
+                <label>Período:</label>
+                <input type="date" id="periodoInicio" class="input-field" onchange="atualizarGrafico30Dias()">
+                <span>até</span>
+                <input type="date" id="periodoFim" class="input-field" onchange="atualizarGrafico30Dias()">
+                <button class="btn btn-neutro" onclick="resetarPeriodo30Dias()">
+                    <i class="fas fa-rotate-left"></i> Últimos 30 dias
+                </button>
+            </div>
+            <div class="chart-wrapper"><canvas id="chartInfeed30Dias"></canvas></div>
+        </div>
     </div>
 
     <footer>
@@ -170,6 +246,30 @@
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw9wTN1zjTpjYkdPdBGyT5KEEj9KMG1OM3rIcc54s2R5gHTZ-R5ELxBE_pTeCDmwQWw/exec";
         let SENHA_MESTRE = "admin123"; 
         let db = [];
+
+        // Instâncias dos gráficos (criadas uma vez, depois só atualizadas)
+        let chartDia, chartHora, chartHoraPorInfeed, chart30Dias;
+        const CORES_PALETA = ['#001f3f','#0d6efd','#20c997','#fd7e14','#dc3545','#6f42c1','#0dcaf0','#ffc107','#198754','#6610f2','#d63384','#495057','#adb5bd','#17a2b8','#e83e8c','#28a745'];
+        const corPara = (i) => CORES_PALETA[i % CORES_PALETA.length];
+
+        // Apenas estes Infeeds entram nos gráficos da aba "Distribuição por Infeed"
+        const INFEEDS_VALIDOS = ['Infeed 11', 'Infeed 12', 'Infeed 13', 'Infeed 14', 'Infeed 21', 'Infeed 22', 'Infeed 23', 'Infeed 24'];
+
+        // Converte a string "dd/mm/aaaa, hh:mm:ss" (ou variações) vinda da planilha em objeto Date
+        function parseDataBR(str) {
+            if (!str) return null;
+            const partes = str.match(/\d+/g);
+            if (!partes || partes.length < 3) return null;
+            const [dia, mes, ano, hora = '0', min = '0', seg = '0'] = partes;
+            const data = new Date(+ano, +mes - 1, +dia, +hora, +min, +seg);
+            return isNaN(data.getTime()) ? null : data;
+        }
+
+        function isMesmoDia(data, referencia) {
+            return data.getFullYear() === referencia.getFullYear() &&
+                   data.getMonth() === referencia.getMonth() &&
+                   data.getDate() === referencia.getDate();
+        }
 
         // Inicialização
         window.onload = () => {
@@ -199,12 +299,19 @@
                 db = data.historico;
                 SENHA_MESTRE = data.senhaAtual;
                 
-                // Atualiza as tabelas
+                // Atualiza a tabela de histórico recente
                 renderTable('historyBody', db.slice().reverse().slice(0, 15));
                 
-                if (document.getElementById('searchInput').value) {
+                // Reaplica a consulta ativa (modo único ou múltiplo)
+                const isMulti = document.getElementById('multiToteCheckbox').checked;
+                if (!isMulti && document.getElementById('searchInput').value) {
                     filterSearch();
+                } else if (isMulti && document.getElementById('multiSearchInput').value) {
+                    filterSearchMulti();
                 }
+
+                // Atualiza os gráficos da aba "Distribuição por Infeed" em tempo real
+                atualizarGraficos();
 
                 // Sincroniza selects de Destino e ETD
                 data.opcoes.forEach(opt => {
@@ -249,10 +356,313 @@
             `).join('');
         }
 
+        // --- CONSULTA: alterna entre modo único e modo múltiplo ---
+        function toggleSearchMode() {
+            const isMulti = document.getElementById('multiToteCheckbox').checked;
+            document.getElementById('singleSearchWrapper').style.display = isMulti ? 'none' : 'block';
+            document.getElementById('multiSearchWrapper').style.display = isMulti ? 'block' : 'none';
+            document.getElementById('searchBody').innerHTML = '';
+            if (isMulti) {
+                document.getElementById('multiSearchInput').value = '';
+            } else {
+                document.getElementById('searchInput').value = '';
+            }
+        }
+
+        // Modo único: mostra TODOS os registros daquela tote (comportamento original)
         function filterSearch() {
-            const query = document.getElementById('searchInput').value.toLowerCase();
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            if (!query) { document.getElementById('searchBody').innerHTML = ''; return; }
             const results = db.filter(item => item.tote.toString().toLowerCase().includes(query));
             renderTable('searchBody', results.slice().reverse());
+        }
+
+        // Quebra automaticamente cada "tote" digitada/colada em blocos de até 16 caracteres,
+        // pulando para a linha de baixo — útil quando o leitor de código de barras bipa tudo de uma vez.
+        function limitarLinhaTote(textarea) {
+            const linhas = textarea.value.split('\n');
+            const linhasProcessadas = [];
+
+            linhas.forEach(linha => {
+                if (linha.length > 16) {
+                    for (let i = 0; i < linha.length; i += 16) {
+                        linhasProcessadas.push(linha.slice(i, i + 16));
+                    }
+                } else {
+                    linhasProcessadas.push(linha);
+                }
+            });
+
+            const novoValor = linhasProcessadas.join('\n');
+            if (novoValor !== textarea.value) {
+                textarea.value = novoValor;
+                textarea.selectionStart = textarea.selectionEnd = novoValor.length;
+            }
+        }
+
+        // Modo múltiplo: para cada tote informada, retorna apenas o registro MAIS RECENTE
+        function filterSearchMulti() {
+            const raw = document.getElementById('multiSearchInput').value;
+            const totesConsultadas = raw.split('\n').map(t => t.trim().toLowerCase()).filter(t => t !== "");
+            if (!totesConsultadas.length) { document.getElementById('searchBody').innerHTML = ''; return; }
+
+            // db vem em ordem cronológica crescente (mais antigo -> mais novo),
+            // então a última ocorrência encontrada de cada tote é sempre a mais recente.
+            const ultimoPorTote = {};
+            db.forEach(item => {
+                const chave = item.tote.toString().trim().toLowerCase();
+                if (totesConsultadas.includes(chave)) {
+                    ultimoPorTote[chave] = item;
+                }
+            });
+
+            // Mantém a ordem em que as totes foram digitadas/bipadas; ignora as não encontradas
+            const resultados = totesConsultadas
+                .map(t => ultimoPorTote[t])
+                .filter(Boolean);
+
+            renderTable('searchBody', resultados);
+        }
+
+        // --- BASE DE DADOS: exporta o histórico em CSV, com filtro de período opcional ---
+        function baixarCSV() {
+            const inicioStr = document.getElementById('csvDataInicio').value; // yyyy-mm-dd
+            const fimStr = document.getElementById('csvDataFim').value;
+
+            let dadosParaExportar = db;
+
+            if (inicioStr || fimStr) {
+                const inicio = inicioStr ? new Date(inicioStr + 'T00:00:00') : null;
+                const fim = fimStr ? new Date(fimStr + 'T23:59:59') : null;
+
+                dadosParaExportar = db.filter(item => {
+                    const dataItem = parseDataBR(item.data);
+                    if (!dataItem) return false;
+                    if (inicio && dataItem < inicio) return false;
+                    if (fim && dataItem > fim) return false;
+                    return true;
+                });
+            }
+
+            if (!dadosParaExportar.length) return alert("Não há registros no período selecionado.");
+
+            const cabecalho = ["Tote", "Data/Hora", "Destino", "ETD"];
+            const linhas = dadosParaExportar.map(item => [item.tote, item.data, item.destino, item.etd]);
+
+            const escapeCSV = (valor) => {
+                const texto = (valor ?? "").toString();
+                if (texto.includes(',') || texto.includes('"') || texto.includes('\n')) {
+                    return '"' + texto.replace(/"/g, '""') + '"';
+                }
+                return texto;
+            };
+
+            const conteudoCSV = [cabecalho, ...linhas]
+                .map(linha => linha.map(escapeCSV).join(','))
+                .join('\r\n');
+
+            // BOM no início para o Excel reconhecer acentuação corretamente
+            const blob = new Blob(["\uFEFF" + conteudoCSV], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const sufixo = (inicioStr || fimStr)
+                ? `_${inicioStr || 'inicio'}_a_${fimStr || 'hoje'}`
+                : `_${new Date().toISOString().slice(0, 10)}`;
+            link.href = url;
+            link.download = `rastreio_totes${sufixo}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function limparFiltroCSV() {
+            document.getElementById('csvDataInicio').value = '';
+            document.getElementById('csvDataFim').value = '';
+        }
+
+        // --- ABA "DISTRIBUIÇÃO POR INFEED": geração e atualização dos gráficos ---
+        function atualizarGraficos() {
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js não carregou — verifique a conexão com o CDN.');
+                return;
+            }
+
+            // Evita criar/atualizar gráficos dentro de uma aba escondida (canvas com tamanho 0),
+            // que é o motivo mais comum de gráfico "sumido" com Chart.js.
+            const abaInfeed = document.getElementById('infeed');
+            if (!abaInfeed.classList.contains('active')) return;
+
+            atualizarGraficoDia();
+            atualizarGraficoHora();
+            atualizarGraficoHoraPorInfeed();
+            atualizarGrafico30Dias();
+        }
+
+        // Gráfico 1: quantidade de totes por infeed, somente hoje (apenas Infeeds 11-14, 21-24)
+        function atualizarGraficoDia() {
+            const hoje = new Date();
+            const contagem = {};
+            INFEEDS_VALIDOS.forEach(infeed => contagem[infeed] = 0);
+
+            db.forEach(item => {
+                const destino = (item.destino || '').trim();
+                if (!INFEEDS_VALIDOS.includes(destino)) return;
+                const d = parseDataBR(item.data);
+                if (d && isMesmoDia(d, hoje)) {
+                    contagem[destino]++;
+                }
+            });
+
+            const labels = INFEEDS_VALIDOS;
+            const valores = labels.map(l => contagem[l]);
+            const cores = labels.map((_, i) => corPara(i));
+
+            if (chartDia) {
+                chartDia.data.labels = labels;
+                chartDia.data.datasets[0].data = valores;
+                chartDia.data.datasets[0].backgroundColor = cores;
+                chartDia.update();
+            } else {
+                chartDia = new Chart(document.getElementById('chartInfeedDia'), {
+                    type: 'bar',
+                    data: { labels: labels, datasets: [{ label: 'Totes hoje', data: valores, backgroundColor: cores }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                    }
+                });
+            }
+        }
+
+        // Gráfico 2: quantidade de totes por hora, somente hoje (apenas Infeeds 11-14, 21-24)
+        function atualizarGraficoHora() {
+            const hoje = new Date();
+            const contagemPorHora = new Array(24).fill(0);
+            db.forEach(item => {
+                const destino = (item.destino || '').trim();
+                if (!INFEEDS_VALIDOS.includes(destino)) return;
+                const d = parseDataBR(item.data);
+                if (d && isMesmoDia(d, hoje)) contagemPorHora[d.getHours()]++;
+            });
+
+            const labels = contagemPorHora.map((_, h) => h.toString().padStart(2, '0') + 'h');
+
+            if (chartHora) {
+                chartHora.data.labels = labels;
+                chartHora.data.datasets[0].data = contagemPorHora;
+                chartHora.update();
+            } else {
+                chartHora = new Chart(document.getElementById('chartInfeedHora'), {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{ label: 'Totes por hora', data: contagemPorHora, borderColor: '#001f3f', backgroundColor: 'rgba(0,31,63,0.15)', fill: true, tension: 0.3 }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                    }
+                });
+            }
+        }
+
+        // Gráfico 2.1: quantidade de totes por hora, separado por cada Infeed (linha por infeed), somente hoje
+        function atualizarGraficoHoraPorInfeed() {
+            const hoje = new Date();
+            const contagem = {};
+            INFEEDS_VALIDOS.forEach(infeed => contagem[infeed] = new Array(24).fill(0));
+
+            db.forEach(item => {
+                const destino = (item.destino || '').trim();
+                if (!INFEEDS_VALIDOS.includes(destino)) return;
+                const d = parseDataBR(item.data);
+                if (d && isMesmoDia(d, hoje)) contagem[destino][d.getHours()]++;
+            });
+
+            const labels = Array.from({ length: 24 }, (_, h) => h.toString().padStart(2, '0') + 'h');
+            const datasets = INFEEDS_VALIDOS.map((infeed, i) => ({
+                label: infeed,
+                data: contagem[infeed],
+                borderColor: corPara(i),
+                backgroundColor: corPara(i),
+                tension: 0.3,
+                fill: false,
+                pointRadius: 2
+            }));
+
+            if (chartHoraPorInfeed) {
+                chartHoraPorInfeed.data.labels = labels;
+                chartHoraPorInfeed.data.datasets = datasets;
+                chartHoraPorInfeed.update();
+            } else {
+                chartHoraPorInfeed = new Chart(document.getElementById('chartInfeedHoraPorInfeed'), {
+                    type: 'line',
+                    data: { labels: labels, datasets: datasets },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12 } } },
+                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                    }
+                });
+            }
+        }
+
+        // Gráfico 3: quantidade total por infeed no período selecionado (apenas Infeeds 11-14, 21-24)
+        function atualizarGrafico30Dias() {
+            const inicioStr = document.getElementById('periodoInicio').value;
+            const fimStr = document.getElementById('periodoFim').value;
+
+            let inicio, fim;
+            if (inicioStr) {
+                inicio = new Date(inicioStr + 'T00:00:00');
+            } else {
+                inicio = new Date();
+                inicio.setDate(inicio.getDate() - 29);
+                inicio.setHours(0, 0, 0, 0);
+            }
+            fim = fimStr ? new Date(fimStr + 'T23:59:59') : new Date();
+
+            const contagem = {};
+            INFEEDS_VALIDOS.forEach(infeed => contagem[infeed] = 0);
+
+            db.forEach(item => {
+                const destino = (item.destino || '').trim();
+                if (!INFEEDS_VALIDOS.includes(destino)) return;
+                const d = parseDataBR(item.data);
+                if (d && d >= inicio && d <= fim) {
+                    contagem[destino]++;
+                }
+            });
+
+            const labels = INFEEDS_VALIDOS;
+            const valores = labels.map(l => contagem[l]);
+            const cores = labels.map((_, i) => corPara(i));
+
+            if (chart30Dias) {
+                chart30Dias.data.labels = labels;
+                chart30Dias.data.datasets[0].data = valores;
+                chart30Dias.data.datasets[0].backgroundColor = cores;
+                chart30Dias.update();
+            } else {
+                chart30Dias = new Chart(document.getElementById('chartInfeed30Dias'), {
+                    type: 'bar',
+                    data: { labels: labels, datasets: [{ label: 'Totes no período', data: valores, backgroundColor: cores }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                    }
+                });
+            }
+        }
+
+        function resetarPeriodo30Dias() {
+            document.getElementById('periodoInicio').value = '';
+            document.getElementById('periodoFim').value = '';
+            atualizarGrafico30Dias();
         }
 
         async function adicionarConfig(selectId) {
@@ -299,6 +709,17 @@
             document.querySelectorAll('.main-card, .tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(name).classList.add('active');
             evt.currentTarget.classList.add('active');
+
+            if (name === 'infeed') {
+                atualizarGraficos();
+                // Canvas escondido tem largura 0; força recalcular o tamanho ao ficar visível
+                setTimeout(() => {
+                    if (chartDia) chartDia.resize();
+                    if (chartHora) chartHora.resize();
+                    if (chartHoraPorInfeed) chartHoraPorInfeed.resize();
+                    if (chart30Dias) chart30Dias.resize();
+                }, 50);
+            }
         }
 
         function toggleLoading(s) { document.getElementById('loadingOverlay').style.display = s ? 'flex' : 'none'; }
