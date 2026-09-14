@@ -58,6 +58,8 @@
         .filtro-periodo label { font-weight: 600; color: var(--navy); font-size: 0.9rem; white-space: nowrap; }
         .filtro-periodo .input-field { width: auto; padding: 8px 12px; }
         .btn-neutro { background-color: #6c757d; color: #fff; }
+        .filtro-infeed-item { display: flex; align-items: center; gap: 6px; font-weight: normal; color: #333; font-size: 0.95rem; cursor: pointer; }
+        .filtro-infeed-item input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--navy); }
 
         /* Gráficos */
         .chart-section-title { color: var(--navy); margin: 25px 0 12px; font-size: 1.05rem; }
@@ -142,6 +144,23 @@
                 </div>
                 <button class="btn btn-add" onclick="saveData()">
                     <i class="fas fa-save"></i> SALVAR NA PLANILHA
+                </button>
+            </div>
+
+            <div class="filtro-periodo" style="margin-bottom: 15px; align-items: flex-start;">
+                <label style="padding-top: 9px;">Filtrar por Infeed:</label>
+                <div id="filtroInfeedGrupo" style="display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
+                    <label class="filtro-infeed-item"><input type="checkbox" class="filtro-infeed-checkbox" value="Infeed 11" onchange="aplicarFiltroHistorico()"> Infeed 11</label>
+                    <label class="filtro-infeed-item"><input type="checkbox" class="filtro-infeed-checkbox" value="Infeed 12" onchange="aplicarFiltroHistorico()"> Infeed 12</label>
+                    <label class="filtro-infeed-item"><input type="checkbox" class="filtro-infeed-checkbox" value="Infeed 13" onchange="aplicarFiltroHistorico()"> Infeed 13</label>
+                    <label class="filtro-infeed-item"><input type="checkbox" class="filtro-infeed-checkbox" value="Infeed 14" onchange="aplicarFiltroHistorico()"> Infeed 14</label>
+                    <label class="filtro-infeed-item"><input type="checkbox" class="filtro-infeed-checkbox" value="Infeed 21" onchange="aplicarFiltroHistorico()"> Infeed 21</label>
+                    <label class="filtro-infeed-item"><input type="checkbox" class="filtro-infeed-checkbox" value="Infeed 22" onchange="aplicarFiltroHistorico()"> Infeed 22</label>
+                    <label class="filtro-infeed-item"><input type="checkbox" class="filtro-infeed-checkbox" value="Infeed 23" onchange="aplicarFiltroHistorico()"> Infeed 23</label>
+                    <label class="filtro-infeed-item"><input type="checkbox" class="filtro-infeed-checkbox" value="Infeed 24" onchange="aplicarFiltroHistorico()"> Infeed 24</label>
+                </div>
+                <button class="btn btn-neutro" onclick="limparFiltroInfeed()">
+                    <i class="fas fa-eraser"></i> Limpar
                 </button>
             </div>
 
@@ -299,8 +318,8 @@
                 db = data.historico;
                 SENHA_MESTRE = data.senhaAtual;
                 
-                // Atualiza a tabela de histórico recente
-                renderTable('historyBody', db.slice().reverse().slice(0, 15));
+                // Atualiza a tabela de histórico recente, respeitando o filtro de Infeed ativo
+                aplicarFiltroHistorico();
                 
                 // Reaplica a consulta ativa (modo único ou múltiplo)
                 const isMulti = document.getElementById('multiToteCheckbox').checked;
@@ -424,18 +443,42 @@
             renderTable('searchBody', resultados);
         }
 
-        // --- BASE DE DADOS: exporta o histórico em CSV, com filtro de período opcional ---
+        // --- BASE DE DADOS: filtro multi-seleção por Infeed (afeta tabela e exportação CSV) ---
+        function getInfeedsSelecionados() {
+            return [...document.querySelectorAll('.filtro-infeed-checkbox:checked')].map(cb => cb.value);
+        }
+
+        function aplicarFiltroHistorico() {
+            const selecionados = getInfeedsSelecionados();
+            let dadosFiltrados = db;
+            if (selecionados.length) {
+                dadosFiltrados = db.filter(item => selecionados.includes((item.destino || '').trim()));
+            }
+            renderTable('historyBody', dadosFiltrados.slice().reverse().slice(0, 15));
+        }
+
+        function limparFiltroInfeed() {
+            document.querySelectorAll('.filtro-infeed-checkbox').forEach(cb => cb.checked = false);
+            aplicarFiltroHistorico();
+        }
+
+        // --- BASE DE DADOS: exporta o histórico em CSV, com filtro de Infeed e de período opcionais ---
         function baixarCSV() {
+            const infeedsSelecionados = getInfeedsSelecionados();
             const inicioStr = document.getElementById('csvDataInicio').value; // yyyy-mm-dd
             const fimStr = document.getElementById('csvDataFim').value;
 
             let dadosParaExportar = db;
 
+            if (infeedsSelecionados.length) {
+                dadosParaExportar = dadosParaExportar.filter(item => infeedsSelecionados.includes((item.destino || '').trim()));
+            }
+
             if (inicioStr || fimStr) {
                 const inicio = inicioStr ? new Date(inicioStr + 'T00:00:00') : null;
                 const fim = fimStr ? new Date(fimStr + 'T23:59:59') : null;
 
-                dadosParaExportar = db.filter(item => {
+                dadosParaExportar = dadosParaExportar.filter(item => {
                     const dataItem = parseDataBR(item.data);
                     if (!dataItem) return false;
                     if (inicio && dataItem < inicio) return false;
